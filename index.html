@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* --- NEW COLOR PALETTE & DESIGN --- */
+        /* 1. Animated Gradient Background (Clean & Fresh) */
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        body.animated-bg {
+            background: linear-gradient(-45deg, #e0f2fe, #bfdbfe, #a5b4fc, #c7d2fe); /* Light Blue -> Indigo */
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        /* 2. "Glassmorphism" Card Style */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1.5rem; /* 24px */
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        /* 3. Custom Loader */
+        .loader {
+            border: 5px solid rgba(0, 0, 0, 0.1);
+            border-top: 5px solid #4f46e5; /* NEW: Indigo-600 */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 4. Custom Modal */
+        .modal-content {
+            background: white;
+            color: #1f2937; /* gray-800 */
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex; align-items: center; justify-content: center; z-index: 50;
+        }
+
+        /* 5. "Pop-in" Animation */
+        .pop-in {
+            animation: popIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        }
+        @keyframes popIn {
+            0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        /* 6. Recent Search Button Styling */
+        .recent-search-button {
+            background-color: rgba(79, 70, 229, 0.1); /* Indigo-600 10% */
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            color: #3730a3; /* Indigo-800 */
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 16px;
+            transition: all 0.2s;
+        }
+        .recent-search-button:hover {
+            background-color: rgba(79, 70, 229, 0.2);
+            color: #1e1b4b; /* Indigo-950 */
+        }
+        
+        /* 7. Forecast Card Styling */
+        .forecast-card {
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body class="animated-bg text-slate-800 font-sans flex items-center justify-center min-h-screen p-4">
+
+    <!-- 
+      --- Login View ---
+    -->
+    <div id="login-view" class="w-full max-w-md mx-4">
+        <div class="glass-card p-6 md:p-8">
+            <h1 class="text-3xl font-bold text-center mb-2 text-indigo-700">Weather Dashboard</h1>
+            <h2 class="text-xl text-center text-slate-600 mb-6">Please log in</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="username-input" class="block text-sm font-medium text-slate-700">Username</label>
+                    <input type="text" id="username-input" placeholder="Enter any username" class="mt-1 block w-full bg-white/50 border border-gray-300/50 rounded-lg px-4 py-2 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="password-input" class="block text-sm font-medium text-slate-700">Password</label>
+                    <input type="password" id="password-input" placeholder="Enter any password" class="mt-1 block w-full bg-white/50 border border-gray-300/50 rounded-lg px-4 py-2 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button id="login-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2 rounded-lg shadow-md transition duration-200">
+                    Login
+                </button>
+                <button id="guest-button" class="w-full bg-slate-500 hover:bg-slate-600 text-white font-semibold px-5 py-2 rounded-lg shadow-md transition duration-200">
+                    Continue as Guest
+                </button>
+                <p class="text-xs text-slate-500 text-center">(Hint: This is a simulation. You can enter any details.)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+      --- Dashboard View ---
+    -->
+    <div id="dashboard-view" class="hidden w-full max-w-3xl mx-4"> <!-- Increased max-width for new layout -->
+        <div id="app-container" class="glass-card p-6 md:p-8 w-full transition-colors duration-500">
+            
+            <div class="flex justify-between items-center mb-2">
+                <h1 class="text-3xl font-bold text-indigo-700">Dashboard</h1>
+                <button id="logout-button" class="text-sm bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-3 py-1 rounded-lg shadow-md transition duration-200">
+                    Logout
+                </button>
+            </div>
+            
+            <h2 id="welcome-message" class="text-lg text-center text-slate-600 mb-6">Loading...</h2>
+
+            <!-- Search Bar -->
+            <div class="flex space-x-2 mb-4">
+                <input type="text" id="city-input" placeholder="Enter a city name" class="flex-grow bg-white/50 border border-gray-300/50 rounded-lg px-4 py-2 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                
+                <button id="location-button" class="bg-slate-500 hover:bg-slate-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition duration-200" aria-label="Use my location">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+                </button>
+                
+                <button id="search-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2 rounded-lg shadow-md transition duration-200">
+                    Search
+                </button>
+            </div>
+            
+            <!-- Recent Searches Container -->
+            <div id="recent-searches-container" class="mb-6 hidden">
+                <!-- Buttons injected here -->
+            </div>
+
+            <!-- Loader -->
+            <div id="loader" class="flex justify-center my-8 hidden">
+                <div class="loader"></div>
+            </div>
+
+            <!-- Current Weather Display -->
+            <div id="weather-display" class="hidden">
+                <!-- NEW LAYOUT: 2-Column Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Left Column: Main Info -->
+                    <div class="pop-in flex flex-col items-center text-center p-4 rounded-lg" style="background-color: rgba(255,255,255,0.3);">
+                        <img id="weather-icon" src="https://placehold.co/100x100/718096/E2E8F0?text=..." alt="Weather icon" class="w-24 h-24 -mt-4">
+                        <h3 id="city-name" class="text-3xl font-bold text-slate-900"></h3>
+                        <p id="temperature" class="text-6xl font-thin text-slate-800"></p>
+                        <p id="description" class="text-slate-600 capitalize text-lg"></p>
+                    </div>
+                    
+                    <!-- Right Column: Weather Details (FIXED HTML) -->
+                    <div id="weather-details" class="pop-in flex flex-col justify-center space-y-4 p-4">
+                        <h4 class="text-md font-semibold text-slate-700 mb-2 text-center">Weather Details</h4>
+                        
+                        <!-- Indicator 1: Feels Like -->
+                        <div class="flex items-center bg-white/50 p-3 rounded-lg">
+                            <svg class="w-6 h-6 text-indigo-500 mr-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L14.25 18l-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5M15.75 12.75l-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5M15.75 6l-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5-1.5-1.5 1.5" /></svg>
+                            <span class="text-sm text-slate-600">Feels Like</span>
+                            <span id="feels-like" class="text-lg font-semibold ml-auto">--°C</span>
+                        </div>
+                        
+                        <!-- Indicator 2: Wind Speed -->
+                        <div class="flex items-center bg-white/50 p-3 rounded-lg">
+                            <svg class="w-6 h-6 text-indigo-500 mr-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12h12.5M12 6v12M18.5 18l-6-6-6 6" /></svg>
+                            <span class="text-sm text-slate-600">Wind</span>
+                            <span id="wind-speed" class="text-lg font-semibold ml-auto">-- km/h</span>
+                        </div>
+
+                        <!-- Indicator 3: Humidity -->
+                        <div class="flex items-center bg-white/50 p-3 rounded-lg">
+                            <svg class="w-6 h-6 text-indigo-500 mr-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5l-3-3m0 0l-3 3m3-3V6.75m0 0l3 3m-3-3l-3 3" /></svg>
+                            <span class="text-sm text-slate-600">Humidity</span>
+                            <span id="humidity" class="text-lg font-semibold ml-auto">--%</span>
+                        </div>
+
+                        <!-- NEW: Sunrise -->
+                        <div class="flex items-center bg-white/50 p-3 rounded-lg">
+                            <svg class="w-6 h-6 text-yellow-500 mr-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v.01M6.41 6.41L6.4 6.4M3 12h.01M6.4 17.6l.01.01M12 21v-.01M17.6 17.6l-.01.01M21 12h-.01M17.6 6.41l-.01-.01M12 18a6 6 0 100-12 6 6 0 000 12z" /></svg>
+                            <span class="text-sm text-slate-600">Sunrise</span>
+                            <span id="sunrise" class="text-lg font-semibold ml-auto">--:--</span>
+                        </div>
+                        
+                        <!-- NEW: Sunset -->
+                        <div class="flex items-center bg-white/50 p-3 rounded-lg">
+                            <svg class="w-6 h-6 text-orange-500 mr-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v.01M6.41 6.41L6.4 6.4M3 12h.01M6.4 17.6l.01.01M12 21v-.01M17.6 17.6l-.01.01M21 12h-.01M17.6 6.41l-.01-.01M12 18a6 6 0 100-12 6 6 0 000 12zM2 12h20" /></svg>
+                            <span class="text-sm text-slate-600">Sunset</span>
+                            <span id="sunset" class="text-lg font-semibold ml-auto">--:--</span>
+                        </div>
+                        
+                        <!-- NEW: Air Quality Index (AQI) -->
+                        <div class="flex items-center bg-white/50 p-3 rounded-lg">
+                            <svg class="w-6 h-6 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" /></svg>
+                            <span class="text-sm text-slate-600">Air Quality</span>
+                            <span id="aqi" class="text-lg font-semibold ml-auto">---</span>
+                        </div>
+
+                    </div>
+                </div> <!-- End 2-Column Grid -->
+
+                <!-- 'Set Home' Button: This will be hidden for Guests via JS -->
+                <button id="set-home-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition duration-200 mt-6">
+                    Set as Home City
+                </button>
+                
+                <!-- NEW: Hourly Forecast Section -->
+                <div id="hourly-forecast-container" class="mt-6">
+                    <!-- Hourly forecast cards will be injected here -->
+                </div>
+                
+                <!-- 5-Day Forecast Section -->
+                <div id="forecast-display" class="mt-6">
+                    <!-- Forecast cards will be injected here by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal (replaces alert()) -->
+    <div id="custom-modal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <p id="modal-message" class="mb-4">Home city saved!</p>
+            <button id="modal-close-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- STEP 1: Get API Key ---
+        const apiKey = "0844c042a8150bdac774143b38818940"; // Your API key
+
+        // --- STEP 2: DOM Element References ---
+        const cityInput = document.getElementById('city-input');
+        const searchButton = document.getElementById('search-button');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const loader = document.getElementById('loader');
+        const weatherDisplay = document.getElementById('weather-display');
+        const cityNameEl = document.getElementById('city-name');
+        const descriptionEl = document.getElementById('description');
+        const weatherIconEl = document.getElementById('weather-icon');
+        const temperatureEl = document.getElementById('temperature');
+        const setHomeButton = document.getElementById('set-home-button');
+        
+        const weatherDetailsEl = document.getElementById('weather-details'); // This is the container
+        const feelsLikeEl = document.getElementById('feels-like');
+        const windSpeedEl = document.getElementById('wind-speed');
+        const humidityEl = document.getElementById('humidity');
+        // NEW DOM References
+        const sunriseEl = document.getElementById('sunrise');
+        const sunsetEl = document.getElementById('sunset');
+        const aqiEl = document.getElementById('aqi');
+        const hourlyForecastContainer = document.getElementById('hourly-forecast-container');
+
+        const appContainer = document.getElementById('app-container');
+        
+        const customModal = document.getElementById('custom-modal');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCloseButton = document.getElementById('modal-close-button');
+        
+        const loginView = document.getElementById('login-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const loginButton = document.getElementById('login-button');
+        const logoutButton = document.getElementById('logout-button');
+        const usernameInput = document.getElementById('username-input');
+        
+        const guestButton = document.getElementById('guest-button');
+        
+        const forecastDisplay = document.getElementById('forecast-display');
+        
+        const locationButton = document.getElementById('location-button');
+        const recentSearchesContainer = document.getElementById('recent-searches-container');
+
+
+        // --- STEP 3: EVENT-DRIVEN PROGRAMMING ---
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- Authentication Check ---
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                showDashboard();
+            } else {
+                showLogin();
+            }
+
+            // --- Login Events ---
+            loginButton.addEventListener('click', handleLogin);
+            guestButton.addEventListener('click', handleGuestLogin);
+            logoutButton.addEventListener('click', handleLogout);
+            
+            // --- Dashboard Events ---
+            searchButton.addEventListener('click', () => {
+                const cityName = cityInput.value.trim();
+                if (cityName) {
+                    fetchWeatherByCity(cityName);
+                } else {
+                    showModal("Please enter a city name.");
+                }
+            });
+
+            cityInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    searchButton.click();
+                }
+            });
+
+            setHomeButton.addEventListener('click', () => {
+                const currentCity = cityNameEl.textContent;
+                if (currentCity) {
+                    saveHomeCity(currentCity);
+                }
+            });
+
+            modalCloseButton.addEventListener('click', () => {
+                customModal.classList.add('hidden');
+            });
+            
+            locationButton.addEventListener('click', () => {
+                if ('geolocation' in navigator) {
+                    welcomeMessage.textContent = "Getting your location...";
+                    loader.classList.remove('hidden');
+                    weatherDisplay.classList.add('hidden');
+                    clearForecasts();
+                    navigator.geolocation.getCurrentPosition(locationSuccess, locationError);
+                } else {
+                    showModal("Geolocation is not supported by your browser.");
+                }
+            });
+        });
+        
+        // --- Geolocation Callbacks (Event-Driven) ---
+        function locationSuccess(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            fetchWeatherByCoords(lat, lon);
+        }
+
+        function locationError(error) {
+            loader.classList.add('hidden');
+            welcomeMessage.textContent = `Welcome, ${localStorage.getItem('username')}!`;
+            let message = "Could not get your location. Please search manually.";
+            if (error.code === error.PERMISSION_DENIED) {
+                message = "You denied location access. Please search manually.";
+            }
+            showModal(message);
+        }
+        
+        // --- AUTH FUNCTIONS (Virtual Identity) ---
+        function handleLogin() {
+            const username = usernameInput.value.trim();
+            if (!username) {
+                showModal("Please enter a username.");
+                return;
+            }
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('username', username);
+            localStorage.setItem('isGuest', 'false');
+            showDashboard();
+        }
+        
+        function handleGuestLogin() {
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('username', 'Guest');
+            localStorage.setItem('isGuest', 'true');
+            showDashboard();
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('username');
+            localStorage.removeItem('homeCity');
+            localStorage.removeItem('isGuest');
+            localStorage.removeItem('recentSearches');
+            
+            showLogin();
+            
+            usernameInput.value = '';
+            document.getElementById('password-input').value = '';
+            clearForecasts();
+            weatherDisplay.classList.add('hidden');
+        }
+
+        function showLogin() {
+            loginView.classList.remove('hidden');
+            dashboardView.classList.add('hidden');
+            document.body.classList.add('items-center'); // Center login card
+        }
+
+        function showDashboard() {
+            dashboardView.classList.remove('hidden');
+            loginView.classList.add('hidden');
+            document.body.classList.remove('items-center'); // Allow dashboard to be at top
+            
+            const username = localStorage.getItem('username');
+            const isGuest = localStorage.getItem('isGuest') === 'true';
+
+            if (isGuest) {
+                welcomeMessage.textContent = `Welcome, ${username}! (Guest Mode)`;
+                setHomeButton.style.display = 'none';
+                recentSearchesContainer.style.display = 'none';
+                localStorage.removeItem('homeCity');
+            } else {
+                welcomeMessage.textContent = `Welcome, ${username}!`;
+                setHomeButton.style.display = 'block';
+                recentSearchesContainer.style.display = 'block';
+                displayRecentSearches();
+                loadHomeCity();
+            }
+        }
+
+
+        // --- STEP 4: INTEROPERABILITY (Fetching Data) ---
+        
+        async function fetchWeatherByCity(cityName) {
+            loader.classList.remove('hidden');
+            weatherDisplay.classList.add('hidden');
+            clearForecasts();
+            welcomeMessage.textContent = `Fetching weather for ${cityName}...`;
+
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${apiKey}&units=metric`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                displayWeather(data);
+                
+                if (localStorage.getItem('isGuest') === 'false') {
+                    addRecentSearch(data.name);
+                }
+                
+                // Chained API Calls
+                await fetchForecast(data.coord.lat, data.coord.lon);
+                await fetchAirQuality(data.coord.lat, data.coord.lon); // NEW
+
+            } catch (error) {
+                console.error("Error fetching weather:", error);
+                showModal("City not found. Please try again.");
+                welcomeMessage.textContent = `Welcome, ${localStorage.getItem('username')}!`;
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+        
+        async function fetchWeatherByCoords(lat, lon) {
+            loader.classList.remove('hidden');
+            weatherDisplay.classList.add('hidden');
+            clearForecasts();
+            welcomeMessage.textContent = `Fetching weather for your location...`;
+
+            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                displayWeather(data);
+                
+                if (localStorage.getItem('isGuest') === 'false') {
+                    addRecentSearch(data.name);
+                }
+                
+                // Chained API Calls
+                await fetchForecast(lat, lon);
+                await fetchAirQuality(lat, lon); // NEW
+
+            } catch (error) {
+                console.error("Error fetching weather:", error);
+                showModal("Could not fetch weather for your location.");
+                welcomeMessage.textContent = `Welcome, ${localStorage.getItem('username')}!`;
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+        async function fetchForecast(lat, lon) {
+            const forecastApiUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+            try {
+                const response = await fetch(forecastApiUrl);
+                if (!response.ok) throw new Error(`Forecast HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                // Get one forecast per day (at 12:00)
+                const dailyData = data.list.filter(item => item.dt_txt.includes("12:00:00"));
+                displayForecast(dailyData);
+                
+                // NEW: Get hourly data for the next 24 hours (8 items)
+                const hourlyData = data.list.slice(0, 8);
+                displayHourlyForecast(hourlyData);
+
+            } catch (error) {
+                console.error("Error fetching forecast:", error);
+            }
+        }
+
+        // NEW: Function to fetch Air Quality Index
+        // This is a great "Interoperability" example for your video.
+        async function fetchAirQuality(lat, lon) {
+            const aqiApiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+            try {
+                const response = await fetch(aqiApiUrl);
+                if (!response.ok) throw new Error(`AQI HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                if (data.list && data.list.length > 0) {
+                    const aqi = data.list[0].main.aqi;
+                    displayAirQuality(aqi);
+                }
+            } catch (error) {
+                console.error("Error fetching AQI:", error);
+                aqiEl.textContent = 'N/A';
+            }
+        }
+
+
+        // --- STEP 5: Display Functions ---
+        
+        function displayWeather(data) {
+            // Remove pop-in classes to reset animation
+            weatherDisplay.classList.remove('pop-in');
+            
+            requestAnimationFrame(() => {
+                cityNameEl.textContent = data.name;
+                descriptionEl.textContent = data.weather[0].description;
+                temperatureEl.textContent = `${Math.round(data.main.temp)}°C`;
+                feelsLikeEl.textContent = `${Math.round(data.main.feels_like)}°C`;
+                humidityEl.textContent = `${data.main.humidity}%`;
+                const windKmh = (data.wind.speed * 3.6).toFixed(1);
+                windSpeedEl.textContent = `${windKmh} km/h`;
+                
+                // NEW: Display Sunrise/Sunset
+                sunriseEl.textContent = formatTime(data.sys.sunrise, data.timezone);
+                sunsetEl.textContent = formatTime(data.sys.sunset, data.timezone);
+                
+                weatherIconEl.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`; // Larger icon
+                weatherIconEl.alt = data.weather[0].description;
+                
+                weatherDisplay.classList.remove('hidden');
+                weatherDisplay.classList.add('pop-in'); // Add animation class
+                
+                welcomeMessage.textContent = `Currently viewing ${data.name}`;
+            });
+        }
+        
+        // NEW: Function to display AQI
+        function displayAirQuality(aqi) {
+            let aqiText = 'Unknown';
+            let aqiColorClass = 'text-slate-700';
+            
+            switch(aqi) {
+                case 1: aqiText = 'Good'; aqiColorClass = 'text-green-600'; break;
+                case 2: aqiText = 'Fair'; aqiColorClass = 'text-yellow-600'; break;
+                case 3: aqiText = 'Moderate'; aqiColorClass = 'text-orange-600'; break;
+                case 4: aqiText = 'Poor'; aqiColorClass = 'text-red-600'; break;
+                case 5: aqiText = 'Very Poor'; aqiColorClass = 'text-purple-800'; break;
+            }
+            aqiEl.textContent = aqiText;
+            aqiEl.className = `text-lg font-semibold ml-auto ${aqiColorClass}`; // Apply color
+            
+            // Also color the SVG icon
+            const aqiIcon = aqiEl.closest('.flex').querySelector('svg');
+            aqiIcon.className = `w-6 h-6 mr-3 ${aqiColorClass}`;
+        }
+        
+        // NEW: Function to display the hourly forecast
+        function displayHourlyForecast(hourlyData) {
+            hourlyForecastContainer.innerHTML = ''; // Clear previous
+            
+            const title = document.createElement('h4');
+            title.className = "text-lg font-semibold text-slate-700 mb-3 mt-6 text-center pop-in";
+            title.textContent = "Hourly Forecast";
+            hourlyForecastContainer.appendChild(title);
+            
+            // Create a container that scrolls horizontally
+            const scrollContainer = document.createElement('div');
+            scrollContainer.className = "flex overflow-x-auto gap-3 pb-3 pop-in";
+            
+            hourlyData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "forecast-card flex-shrink-0 w-24"; // w-24 to fix width
+                const date = new Date(item.dt * 1000);
+                const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const temp = `${Math.round(item.main.temp)}°C`;
+                const iconSrc = `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`;
+                
+                card.innerHTML = `
+                    <div class="font-semibold text-sm text-indigo-700">${time}</div>
+                    <img src="${iconSrc}" alt="${item.weather[0].description}" class="w-16 h-16 mx-auto" />
+                    <div class="font-bold text-lg text-slate-800">${temp}</div>
+                `;
+                scrollContainer.appendChild(card);
+            });
+            hourlyForecastContainer.appendChild(scrollContainer);
+        }
+        
+        function displayForecast(dailyData) {
+            forecastDisplay.innerHTML = ''; 
+
+            const title = document.createElement('h4');
+            title.className = "text-lg font-semibold text-slate-700 mb-3 mt-6 text-center pop-in";
+            title.textContent = "5-Day Forecast";
+            forecastDisplay.appendChild(title);
+
+            const grid = document.createElement('div');
+            // NEW: Responsive grid for forecast
+            grid.className = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pop-in";
+
+            dailyData.forEach(day => {
+                const card = document.createElement('div');
+                card.className = "forecast-card";
+                const date = new Date(day.dt * 1000);
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const temp = `${Math.round(day.main.temp)}°C`;
+                const iconSrc = `https://openweathermap.org/img/wn/${day.weather[0].icon}@2x.png`;
+
+                card.innerHTML = `
+                    <div class="font-semibold text-sm text-indigo-700">${dayName}</div>
+                    <img src="${iconSrc}" alt="${day.weather[0].description}" class="w-16 h-16 mx-auto" />
+                    <div class="font-bold text-xl text-slate-800">${temp}</div>
+                `;
+                grid.appendChild(card);
+            });
+            forecastDisplay.appendChild(grid);
+        }
+        
+        function clearForecasts() { // Renamed from clearForecast
+            forecastDisplay.innerHTML = '';
+            hourlyForecastContainer.innerHTML = ''; // NEW: Clear hourly
+            aqiEl.textContent = '---'; // NEW: Reset AQI
+            aqiEl.className = 'text-lg font-semibold ml-auto';
+            const aqiIcon = aqiEl.closest('.flex').querySelector('svg');
+            aqiIcon.className = 'w-6 h-6 text-green-500 mr-3';
+        }
+
+        // --- STEP 6: VIRTUAL IDENTITY (Storage) ---
+        
+        function loadHomeCity() {
+            const savedHomeCity = localStorage.getItem('homeCity');
+            const username = localStorage.getItem('username');
+            
+            if (savedHomeCity) {
+                welcomeMessage.textContent = `Welcome, ${username}! Loading your home city: ${savedHomeCity}`;
+                fetchWeatherByCity(savedHomeCity);
+            } else {
+                welcomeMessage.textContent = `Welcome, ${username}! Search for a city.`;
+            }
+        }
+
+        function saveHomeCity(cityName) {
+            localStorage.setItem('homeCity', cityName);
+            const username = localStorage.getItem('username');
+            showModal(`'${cityName}' has been saved as your home city.`);
+            welcomeMessage.textContent = `Welcome, ${username}! Home city set to ${cityName}`;
+        }
+        
+        function getRecentSearches() {
+            const searches = localStorage.getItem('recentSearches');
+            return searches ? JSON.parse(searches) : [];
+        }
+
+        function addRecentSearch(cityName) {
+            let searches = getRecentSearches();
+            searches = searches.filter(s => s.toLowerCase() !== cityName.toLowerCase()); // Case-insensitive check
+            searches.unshift(cityName);
+            searches = searches.slice(0, 5);
+            localStorage.setItem('recentSearches', JSON.stringify(searches));
+            displayRecentSearches();
+        }
+
+        function displayRecentSearches() {
+            const searches = getRecentSearches();
+            recentSearchesContainer.innerHTML = '';
+            
+            if (searches.length > 0) {
+                const title = document.createElement('h5');
+                title.className = "text-sm text-slate-600 mb-2 text-center";
+                title.textContent = "Recent Searches";
+                recentSearchesContainer.appendChild(title);
+                
+                const buttonGroup = document.createElement('div');
+                buttonGroup.className = "flex flex-wrap gap-2 justify-center";
+                
+                searches.forEach(city => {
+                    const button = document.createElement('button');
+                    button.className = "recent-search-button";
+                    button.textContent = city;
+                    button.addEventListener('click', () => {
+                        cityInput.value = city;
+                        fetchWeatherByCity(city);
+                    });
+                    buttonGroup.appendChild(button);
+                });
+                recentSearchesContainer.appendChild(buttonGroup);
+            }
+        }
+
+        // --- STEP 7: Custom Modal Helper ---
+        function showModal(message) {
+            modalMessage.textContent = message;
+            customModal.classList.remove('hidden');
+        }
+
+        // --- NEW: Helper Function to format Time ---
+        function formatTime(timestamp, timezone) {
+            // Create a date object using the timestamp (in seconds)
+            // Apply the timezone offset (in seconds)
+            const date = new Date((timestamp + timezone) * 1000);
+            return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+        }
+
+    </script>
+</body>
+</html>
